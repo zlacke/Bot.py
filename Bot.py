@@ -5,7 +5,7 @@ import time  # <== добавлен импорт
 print("Запуск бота...")
 
 # Получаем токен из переменных окружения
-TOKEN = os.getenv("TELEGRAM_TOKEN")
+TOKEN = os.getenv("7709844611:AAG1oI-9XUeMMvAClICiSNkntKfOclCV9ts")
 if not TOKEN:
     print("Ошибка: TELEGRAM_TOKEN не найден. Проверь настройки переменных окружения в Render.")
     raise ValueError("Переменная TELEGRAM_TOKEN не найдена. Укажите её в переменных окружения.")
