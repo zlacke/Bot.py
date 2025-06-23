@@ -1,36 +1,52 @@
-import telebot
+import asyncio
 import os
-import time  # <== добавлен импорт
+from telethon import TelegramClient, events
+import vk_api
+from vk_api.upload import VkUpload
 
-print("Запуск бота...")
+# === НАСТРОЙКИ ===
+# Telegram
+TG_API_ID = '28069584'
+TG_API_HASH = '976d680c16829f43bc34753c3cb47dbc'
+TG_SESSION = 'tg_session'  # имя файла сессии
+TG_CHANNEL = 'pitereventru'  # username или id канала (например, 'mychannel' или -1001234567890)
 
-# Получаем токен из переменных окружения
-TOKEN = os.getenv("7709844611:AAG1oI-9XUeMMvAClICiSNkntKfOclCV9ts")
-if not TOKEN:
-    print("Ошибка: TELEGRAM_TOKEN не найден. Проверь настройки переменных окружения в Render.")
-    raise ValueError("Переменная TELEGRAM_TOKEN не найдена. Укажите её в переменных окружения.")
+# VK
+VK_TOKEN = 'vk1.a.Xh-NmFsQzbMlR77O9v-WlrrcARGpQ8hAf_NsHuqfJXH70gd6pHnudXeZZWNmtxJKjyPkfCmoofSU7cvmxdCNAqiX5oqfj_AQtS05XhKi8JWE3HsfUwhCEFCY3-iC_4h-VbZTwUB_61OY9efXx38UFER8hqsJ8YzmecLWeR7ZiJocgOdthglL1YnioLEbPrfVY_cwTUHWx6W2JIV-ow_0xQ'
+VK_GROUP_ID = 147979499  # id группы (без минуса)
 
-print("Токен успешно получен. Создаём бота...")
+# === КОНЕЦ НАСТРОЕК ===
 
-bot = telebot.TeleBot(TOKEN)
+# Инициализация VK
+vk_session = vk_api.VkApi(token=VK_TOKEN)
+vk = vk_session.get_api()
+upload = VkUpload(vk_session)
 
-# Обработчик команд /start и /help
-@bot.message_handler(commands=['start', 'help'])
-def send_welcome(message):
-    print(f"Получена команда: {message.text}")
-    bot.reply_to(message, "Привет! Я бот на Render. Задай мне вопрос!")
+# Инициализация Telegram
+client = TelegramClient(TG_SESSION, TG_API_ID, TG_API_HASH)
 
-# Обработчик всех текстовых сообщений
-@bot.message_handler(content_types=['text'])
-def echo_all(message):
-    print(f"Получено сообщение: {message.text}")
-    bot.reply_to(message, f"Ты написал: {message.text}")
+async def main():
+    @client.on(events.NewMessage(chats=TG_CHANNEL))
+    async def handler(event):
+        message = event.message
+        text = message.text or ''
+        photos = []
+        # Сохраняем фото, если есть
+        if message.photo:
+            file_path = await message.download_media()
+            photos.append(file_path)
+        # Публикуем в VK
+        attachments = []
+        for photo_path in photos:
+            photo = upload.photo_wall(photo_path, group_id=VK_GROUP_ID)[0]
+            attachments.append(f"photo{photo['owner_id']}_{photo['id']}")
+            os.remove(photo_path)  # удаляем локальный файл
+        vk.wall.post(owner_id=-VK_GROUP_ID, message=text, attachments=','.join(attachments))
+        print('Опубликовано в VK:', text)
 
-# Запуск бота в бесконечном цикле
-while True:
-    try:
-        print("Бот запущен! Ожидаю сообщения в Telegram...")
-        bot.polling(none_stop=True, interval=0)
-    except Exception as e:
-        print(f"Произошла ошибка: {e}. Переподключаюсь через 5 секунд...")
-        time.sleep(5)
+    await client.start()
+    print('Бот запущен!')
+    await client.run_until_disconnected()
+
+if __name__ == '__main__':
+    asyncio.run(main()) 
